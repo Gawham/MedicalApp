@@ -1,22 +1,14 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react";
-import { RxHamburgerMenu } from "react-icons/rx";
-import { FiRefreshCw } from "react-icons/fi";
-import { FiUpload, FiCheck, FiX, FiSearch, FiLoader, FiGlobe, FiTrash2, FiAlertTriangle } from "react-icons/fi";
+import React, { useState } from "react";
+import { FiUpload, FiX, FiAlertTriangle } from "react-icons/fi";
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import { Switch } from '@headlessui/react';
-import { LeadData, EmailResponse } from './types/types';
-import { FaLinkedin } from "react-icons/fa";
-import { FiInfo } from 'react-icons/fi';
-import { Popover } from '@headlessui/react';
+import { LeadData } from './types/types';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 
 interface EmailProps {
-  toggleComponentVisibility: () => void;
-  isSidebarVisible: boolean;
   onClose: () => void;
 }
 
@@ -34,86 +26,14 @@ interface CSVRow {
   'IR Sensor Value': string;
 }
 
-interface ParsedContact {
-  name: string;
-  title: string;
-  date: string;
-  email: string;
-}
-
-const Email: React.FC<EmailProps> = ({
-  toggleComponentVisibility,
-  isSidebarVisible,
+const Dashboard: React.FC<EmailProps> = ({
   onClose
 }) => {
   const [leads, setLeads] = useState<LeadData[]>([]);
-  const [isReloading, setIsReloading] = useState(false);
-  const [emailResults, setEmailResults] = useState<Record<string, EmailResponse>>({});
-  const [loadingEmails, setLoadingEmails] = useState<Record<string, boolean>>({});
   const [csvFiles, setCsvFiles] = useState<CSVData[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const [mode, setMode] = useState('csv');
-  const [isSwapping, setIsSwapping] = useState(false);
-  const [deletingLeads, setDeletingLeads] = useState<{ [key: number]: boolean }>({});
   const [selectedLead, setSelectedLead] = useState<LeadData | null>(null);
-
-  const fetchLeads = async () => {
-    try {
-      const response = await fetch('/api/leads/displaypull');
-      if (!response.ok) {
-        throw new Error('Failed to fetch leads');
-      }
-      const data = await response.json();
-      setLeads(data);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-    }
-  };
-
-  const handleSwap = async () => {
-    setIsSwapping(true);
-    try {
-      const response = await fetch('/api/leads/swap', {
-        method: 'GET',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch leads from swap');
-      }
-
-      const data = await response.json();
-      console.log('Leads fetched from swap:', data);
-      await fetchLeads();
-    } catch (error) {
-      console.error('Error fetching leads from swap:', error);
-    } finally {
-      setIsSwapping(false);
-    }
-  };
-
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        // First run the swap operation
-        // await handleSwap(); // Removed this line
-      } catch (error) {
-        console.error('Error during initialization:', error);
-      } finally {
-        // setIsSwapping(false); // Removed this line
-      }
-    };
-
-    initializeData();
-  }, []); // Empty dependency array means this runs once when component mounts
-
-  const handleReload = async () => {
-    setIsReloading(true);
-    await fetchLeads();
-    setIsReloading(false);
-  };
 
   const handleUpload = async () => {
     if (csvFiles.length === 0) return;
@@ -161,7 +81,7 @@ const Email: React.FC<EmailProps> = ({
     }
   };
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = (acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       Papa.parse<CSVRow>(file, {
         complete: async (results) => {
@@ -209,7 +129,7 @@ const Email: React.FC<EmailProps> = ({
         }
       });
     });
-  }, []);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -254,37 +174,11 @@ const Email: React.FC<EmailProps> = ({
       }
     };
 
-    const getStatusColor = (label: string, value: string | undefined) => {
-      if (value === undefined) return 'text-gray-700';
-      const numValue = parseFloat(value);
-      switch(label) {
-        case 'Heart Beat':
-          return numValue > 120 ? 'text-red-500' : numValue < 60 ? 'text-yellow-500' : 'text-green-500';
-        case 'Pulse':
-          return numValue > 100 ? 'text-red-500' : numValue < 50 ? 'text-yellow-500' : 'text-green-500';
-        case 'Temperature (C)':
-          return numValue > 37.5 ? 'text-red-500' : numValue < 36 ? 'text-yellow-500' : 'text-green-500';
-        default:
-          return 'text-gray-700';
-      }
-    };
-
-    const getUnit = (label: string) => {
-      switch(label) {
-        case 'Heart Beat':
-          return 'BPM';
-        case 'Temperature (C)':
-          return '°C';
-        default:
-          return '';
-      }
-    };
-
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 max-w-xl w-full">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold">Patient #{selectedLead?.id} Vital Signs</h2>
+            <span className="text-xl font-bold">Patient #{selectedLead?.id} Vital Signs</span>
             <button onClick={() => setSelectedLead(null)} className="text-gray-500 hover:text-gray-700">
               <FiX className="h-6 w-6" />
             </button>
@@ -528,29 +422,19 @@ const Email: React.FC<EmailProps> = ({
           
           <button
             onClick={handleUpload}
-            disabled={isUploading}
             className={`mt-4 w-full py-2 px-4 rounded-md text-white transition-colors
-              ${isUploading 
+              ${isDeleting 
                 ? 'bg-gray-400 cursor-not-allowed' 
-                : uploadSuccess
-                  ? 'bg-green-500'
-                  : 'bg-blue-500 hover:bg-blue-600'
+                : 'bg-blue-500 hover:bg-blue-600'
               }`}
           >
-            {isUploading ? (
+            {isDeleting ? (
               <span className="flex items-center justify-center">
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Uploading...
-              </span>
-            ) : uploadSuccess ? (
-              <span className="flex items-center justify-center">
-                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Uploaded!
               </span>
             ) : (
               'Upload Files'
@@ -563,11 +447,9 @@ const Email: React.FC<EmailProps> = ({
   );
 };
 
-const capitalizeWords = (str: string) => {
-  return str.replace(/\b\w/g, char => char.toUpperCase());
-};
-
-export default Email;
+export default function Page() {
+  return <Dashboard onClose={() => {}} />;
+}
 
 
 

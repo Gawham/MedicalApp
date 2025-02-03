@@ -12,7 +12,7 @@ export interface LeadData {
     temperature?: string;
     gasSensorValue?: string;
     irSensorValue?: string;
-    parsedContacts?: any[];
+    parsedContacts?: ParsedContact[];
   }
   
   export interface ParsedContact {
