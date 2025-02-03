@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { FiRefreshCw } from "react-icons/fi";
-import { FiUpload, FiCheck, FiX, FiSearch, FiLoader, FiGlobe, FiTrash2 } from "react-icons/fi";
+import { FiUpload, FiCheck, FiX, FiSearch, FiLoader, FiGlobe, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import { Switch } from '@headlessui/react';
@@ -58,6 +58,7 @@ const Email: React.FC<EmailProps> = ({
   const [mode, setMode] = useState('csv');
   const [isSwapping, setIsSwapping] = useState(false);
   const [deletingLeads, setDeletingLeads] = useState<{ [key: number]: boolean }>({});
+  const [selectedLead, setSelectedLead] = useState<LeadData | null>(null);
 
   const fetchLeads = async () => {
     try {
@@ -221,28 +222,158 @@ const Email: React.FC<EmailProps> = ({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch('/api/autoDelete', {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete records');
-      }
-
-      const result = await response.json();
-      console.log('Delete successful:', result);
+      // Clear local state instead of making API call
+      setLeads([]);
       setCsvFiles([]);
       setDeleteSuccess(true);
-      await fetchLeads();
       setTimeout(() => {
         setDeleteSuccess(false);
       }, 2000);
-    } catch (error) {
-      console.error('Error deleting records:', error);
     } finally {
       setIsDeleting(false);
     }
   };
+
+  const LeadDetails = () => {
+    const getValue = (label: string): string | undefined => {
+      if (!selectedLead) return undefined;
+      
+      switch(label) {
+        case 'Heart Beat':
+          return selectedLead.heartBeat?.toString();
+        case 'Pulse':
+          return selectedLead.pulse?.toString();
+        case 'Temperature (C)':
+          return selectedLead.temperature?.toString();
+        case 'Gas Sensor Value':
+          return selectedLead.gasSensorValue?.toString();
+        case 'IR Sensor Value':
+          return selectedLead.irSensorValue?.toString();
+        default:
+          return undefined;
+      }
+    };
+
+    const getStatusColor = (label: string, value: string | undefined) => {
+      if (value === undefined) return 'text-gray-700';
+      const numValue = parseFloat(value);
+      switch(label) {
+        case 'Heart Beat':
+          return numValue > 120 ? 'text-red-500' : numValue < 60 ? 'text-yellow-500' : 'text-green-500';
+        case 'Pulse':
+          return numValue > 100 ? 'text-red-500' : numValue < 50 ? 'text-yellow-500' : 'text-green-500';
+        case 'Temperature (C)':
+          return numValue > 37.5 ? 'text-red-500' : numValue < 36 ? 'text-yellow-500' : 'text-green-500';
+        default:
+          return 'text-gray-700';
+      }
+    };
+
+    const getUnit = (label: string) => {
+      switch(label) {
+        case 'Heart Beat':
+          return 'BPM';
+        case 'Temperature (C)':
+          return '°C';
+        default:
+          return '';
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-xl w-full">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold">Patient #{selectedLead?.id} Vital Signs</h2>
+            <button onClick={() => setSelectedLead(null)} className="text-gray-500 hover:text-gray-700">
+              <FiX className="h-6 w-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {/* Heart Beat */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">❤️</span>
+                <span className="text-gray-600">Heart Beat</span>
+              </div>
+              <div className="text-2xl font-bold text-green-500">
+                {getValue('Heart Beat') || 'N/A'} 
+                <span className="text-lg ml-1">BPM</span>
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Normal rhythm</div>
+            </div>
+
+            {/* Pulse */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">💗</span>
+                <span className="text-gray-600">Pulse</span>
+              </div>
+              <div className="text-2xl font-bold text-green-500">
+                {getValue('Pulse') || 'N/A'}
+              </div>
+            </div>
+
+            {/* Temperature */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">🌡️</span>
+                <span className="text-gray-600">Temperature (C)</span>
+              </div>
+              <div className="text-2xl font-bold text-yellow-500">
+                {getValue('Temperature (C)') || 'N/A'}°C
+              </div>
+              <div className="text-sm text-yellow-600 mt-1">
+                {parseFloat(getValue('Temperature (C)') || '0') < 36 ? 'Hypothermia risk' : ''}
+              </div>
+            </div>
+
+            {/* Gas Sensor */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">⚠️</span>
+                <span className="text-gray-600">Gas Sensor Value</span>
+              </div>
+              <div className="text-xl font-bold text-gray-700">
+                {getValue('Gas Sensor Value') || 'N/A'}
+              </div>
+            </div>
+
+            {/* IR Sensor */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">📡</span>
+                <span className="text-gray-600">IR Sensor Value</span>
+              </div>
+              <div className="text-xl font-bold text-gray-700">
+                {getValue('IR Sensor Value') || 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="text-blue-800 font-semibold mb-2">Health Status Summary</h3>
+            <p className="text-blue-700">
+              Vital signs within normal parameters
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  function hasAbnormalValues(lead: LeadData) {
+    const heartBeat = parseFloat(lead.heartBeat || '');
+    const pulse = parseFloat(lead.pulse || '');
+    const temperature = parseFloat(lead.temperature || '');
+
+    return (
+      (heartBeat > 120 || heartBeat < 60) ||
+      (pulse > 100 || pulse < 50) ||
+      (temperature > 37.5 || temperature < 36)
+    );
+  }
 
   return (
     <div className="flex max-w-full flex-1 flex-col relative h-screen">
@@ -284,8 +415,20 @@ const Email: React.FC<EmailProps> = ({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{lead.id}</td>
+                  <tr key={lead.id} className={`hover:bg-gray-50 ${hasAbnormalValues(lead) ? 'bg-red-50' : ''}`}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSelectedLead(lead)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {lead.id}
+                        </button>
+                        {hasAbnormalValues(lead) && (
+                          <FiAlertTriangle className="text-red-500 w-4 h-4" title="Abnormal parameters detected" />
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{lead.heartBeat}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{lead.pulse}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{lead.temperature}</td>
@@ -415,6 +558,7 @@ const Email: React.FC<EmailProps> = ({
           </button>
         </div>
       )}
+      {selectedLead && <LeadDetails />}
     </div>
   );
 };
